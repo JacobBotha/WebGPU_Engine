@@ -57,13 +57,12 @@ export const loadMesh = (mesh: Mesh) : BWResult => {
     };
 };
 
+
 console.log(loadMesh(CubeMesh));
 loadMesh(sqPyramid);
 
 const matrixSize = 4 * 16
 
-drawModel({meshName: "pyramid", transform: mat4.create()});
-drawModel({meshName: "cube", transform: mat4.create()});
 /**
  * Create a new bind group for the specified uniform buffer and accounts for
  * the size of a matrix.
@@ -169,7 +168,6 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
     meshMap.forEach(({mesh, offset}) => {
         bufferArray.set(mesh.vertexArray, (meshMap.vertexSize/4) * offset);
     });
-    console.log(bufferArray);
     verticesBuffer.unmap();
 
     //Create a new pipeline for each MeshMap/Shader
@@ -302,22 +300,35 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
         // Sample is no longer the active page.
         if (!pageState.active) return;
 
-        const transformationMatrix = getTransformationMatrix(2);
-        device.queue.writeBuffer(
-            uniformBuffer,
-            0,
-            transformationMatrix.buffer,
-            transformationMatrix.byteOffset,
-            transformationMatrix.byteLength
-        );
-        const transformationMatrix2 = getTransformationMatrix(-2);
-        device.queue.writeBuffer(
-            uniformBuffer,
-            256,
-            transformationMatrix2.buffer,
-            transformationMatrix2.byteOffset,
-            transformationMatrix2.byteLength
-        );
+        // const transformationMatrix = getTransformationMatrix(2);
+        // device.queue.writeBuffer(
+        //     uniformBuffer,
+        //     0,
+        //     transformationMatrix.buffer,
+        //     transformationMatrix.byteOffset,
+        //     transformationMatrix.byteLength
+        // );
+        // const transformationMatrix2 = getTransformationMatrix(-2);
+        
+        //Update each model in the model list
+        for (let model of models) {
+            model.onUpdate();
+        }
+        
+        //Write uniform data to GPU
+        for (let i = 0; i < models.length; i++) {
+            const matrix = models[i].transform as Float32Array;
+            const offset = 256 * i;
+            console.log("Offset: " + offset + "\n Name:" + models[i].meshName + "\n Matrix: " + matrix);
+            device.queue.writeBuffer(
+                uniformBuffer,
+                offset,
+                matrix.buffer,
+                matrix.byteOffset,
+                matrix.byteLength
+            );
+            
+        }
         (renderPassDescriptor.colorAttachments as Array<GPURenderPassColorAttachment>)[0].view = context
         .getCurrentTexture()
         .createView();
