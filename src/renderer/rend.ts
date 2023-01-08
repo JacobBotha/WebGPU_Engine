@@ -4,7 +4,7 @@ import basicVertWGSL from './shaders/basic.vert.wgsl';
 import vertexPositionColorWGSL from './shaders/vertexPositionColor.frag.wgsl';
 import { mat4, vec3 } from 'gl-matrix';
 import Mesh, { MeshMap } from '../meshes/mesh';
-import Model from './model';
+import Model from '../models/model';
 import { BWResult } from '../helper';
 import SquarePyramidMesh from '../meshes/square_pyramid';
 
@@ -14,22 +14,29 @@ export type RenderInit = (params: {
 }) => void | Promise<void>;
 
 //Should be moved out of rend.
-const cube = CubeMesh;
+// const cube = CubeMesh;
 const sqPyramid = SquarePyramidMesh;
 
 //Map for storing all active meshes used in the scene.
 const meshMap = new MeshMap();
 
+const models: Model[] = [];
+//The list of bind groups
+const uniformBindGroups: GPUBindGroup[] = [];
+
 /**
- * Draw a model to the screen with at the models given transform. The mesh of
+ * Draw a model to the screen with the model's given transform. The mesh of
  * the model will need to have been loaded already and will return ERROR 
- * BWResult if not.
+ * BWResult if not. Should most likely be moved to a scene module.
  * 
  * @param model Model to be drawn.
  * @return BWResult
  */
 export const drawModel = (model: Model) : BWResult => {
     // meshMap.add()
+    models.push(model);
+    //Architecture redisgn to allow for dynamic model uploads
+    // uniformBindGroups.push();
     return BWResult.SUCESS;
 };
 
@@ -50,8 +57,42 @@ export const loadMesh = (mesh: Mesh) : BWResult => {
     };
 };
 
-loadMesh(cube);
+console.log(loadMesh(CubeMesh));
 loadMesh(sqPyramid);
+
+const matrixSize = 4 * 16
+
+drawModel({meshName: "pyramid", transform: mat4.create()});
+drawModel({meshName: "cube", transform: mat4.create()});
+/**
+ * Create a new bind group for the specified uniform buffer and accounts for
+ * the size of a matrix.
+ * 
+ * @param device GPUDevice to be used to create the bind group
+ * @param pipeline GPUPipeline to create the bind group from
+ * @param uniformBuffer GPUBuffer to assign the bindgroup to
+ * @param offset number of 4x4 matrices from the start of the buffer
+ */
+const newUniformBindGroup = (
+    device: GPUDevice, pipeline: 
+    GPURenderPipeline, 
+    uniformBuffer: GPUBuffer,
+    offset: number,
+) : GPUBindGroup => {
+    return device.createBindGroup({
+        layout: pipeline.getBindGroupLayout(0),
+        entries: [
+        {
+            binding: 0,
+            resource: {
+                buffer: uniformBuffer,
+                offset: offset*256,
+                size: matrixSize
+            },
+        },
+        ],
+    });
+}
 
 /**
  * Begins the renderer including the draw loop. If renderer could not be
@@ -60,6 +101,16 @@ loadMesh(sqPyramid);
  * @param param0 Dictionary containing canvas and pagestate information.
  */
 const initRenderer: RenderInit = async ({canvas, pageState}) => {
+    /**
+     * Select the GPU adaptor to use for rendering. If forceFallback is true
+     * AND blockFallback is true then no adaptor can be selected.
+     * 
+     * @param entry The WebGPU entry
+     * @param powerPreference GPUPowerPreference for the adaptor
+     * @param forceFallback boolean Force GPU to be a fallback adaptor
+     * @param blockFallback boolean Block the fallback adaptor from being used
+     * @returns Promise<GPUAdapter | null>
+     */
     async function selectAdapter(
         entry: GPU, 
         powerPreference?: GPUPowerPreference, 
@@ -108,13 +159,20 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
 
     // Create a vertex buffer from the MeshMap
     const verticesBuffer = device.createBuffer({
-        size: cube.vertexSize * cube.vertexCount,
+        size: meshMap.vertexSize * meshMap.vertexCount,
         usage: GPUBufferUsage.VERTEX,
         mappedAtCreation: true,
     });
-    new Float32Array(verticesBuffer.getMappedRange()).set(cube.vertexArray);
+
+    //Add all vertices in array
+    let bufferArray = new Float32Array(verticesBuffer.getMappedRange())
+    meshMap.forEach(({mesh, offset}) => {
+        bufferArray.set(mesh.vertexArray, (meshMap.vertexSize/4) * offset);
+    });
+    console.log(bufferArray);
     verticesBuffer.unmap();
 
+    //Create a new pipeline for each MeshMap/Shader
     const pipeline = device.createRenderPipeline({
         layout: 'auto',
         vertex: {
@@ -124,18 +182,18 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
             entryPoint: 'main',
             buffers: [
                 {
-                arrayStride: cube.vertexSize,
+                arrayStride: meshMap.vertexSize,
                 attributes: [
                     {
                     // position
                     shaderLocation: 0,
-                    offset: cube.positionOffset,
+                    offset: meshMap.positionOffset,
                     format: 'float32x4',
                     },
                     {
                     // uv
                     shaderLocation: 1,
-                    offset: cube.uvOffset,
+                    offset: meshMap.uvOffset,
                     format: 'float32x2',
                     },
                 ],
@@ -177,23 +235,28 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
         usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
 
-    const uniformBufferSize = 4 * 16; // 4x4 matrix
+    //Size of buffer changes with number of models
+    const uniformBufferSize = 256 * 2; // 4x4 matrix
     const uniformBuffer = device.createBuffer({
         size: uniformBufferSize,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    const uniformBindGroup = device.createBindGroup({
-        layout: pipeline.getBindGroupLayout(0),
-        entries: [
-        {
-            binding: 0,
-            resource: {
-            buffer: uniformBuffer,
-            },
-        },
-        ],
-    });
+    // const uniformBindGroup = device.createBindGroup({
+    //     layout: pipeline.getBindGroupLayout(0),
+    //     entries: [
+    //     {
+    //         binding: 0,
+    //         resource: {
+    //         buffer: uniformBuffer,
+    //         },
+    //     },
+    //     ],
+    // });
+
+    for (let i = 0; i < models.length; i++) {
+        uniformBindGroups.push(newUniformBindGroup(device, pipeline, uniformBuffer, i));
+    }
 
     const renderPassDescriptor: GPURenderPassDescriptor = {
         colorAttachments: [
@@ -218,9 +281,9 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
     const projectionMatrix = mat4.create();
     mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
-    function getTransformationMatrix() {
+    function getTransformationMatrix(translatex = 0) {
         const viewMatrix = mat4.create();
-        mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -4));
+        mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(translatex, 0, -4));
         const now = Date.now() / 1000;
         mat4.rotate(
         viewMatrix,
@@ -239,13 +302,21 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
         // Sample is no longer the active page.
         if (!pageState.active) return;
 
-        const transformationMatrix = getTransformationMatrix();
+        const transformationMatrix = getTransformationMatrix(2);
         device.queue.writeBuffer(
-        uniformBuffer,
-        0,
-        transformationMatrix.buffer,
-        transformationMatrix.byteOffset,
-        transformationMatrix.byteLength
+            uniformBuffer,
+            0,
+            transformationMatrix.buffer,
+            transformationMatrix.byteOffset,
+            transformationMatrix.byteLength
+        );
+        const transformationMatrix2 = getTransformationMatrix(-2);
+        device.queue.writeBuffer(
+            uniformBuffer,
+            256,
+            transformationMatrix2.buffer,
+            transformationMatrix2.byteOffset,
+            transformationMatrix2.byteLength
         );
         (renderPassDescriptor.colorAttachments as Array<GPURenderPassColorAttachment>)[0].view = context
         .getCurrentTexture()
@@ -254,9 +325,16 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
         const commandEncoder = device.createCommandEncoder();
         const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
         passEncoder.setPipeline(pipeline);
-        passEncoder.setBindGroup(0, uniformBindGroup);
         passEncoder.setVertexBuffer(0, verticesBuffer);
-        passEncoder.draw(cube.vertexCount, 1, 0, 0);
+        // passEncoder.draw(cube.vertexCount, 1, 0, 0);
+
+        //Draw each mesh in the map. - Should be changed to draw each mesh for the models.
+        for (let i = 0; i < models.length; i++) {
+            const {mesh, offset} = meshMap.get(models[i].meshName);
+            passEncoder.setBindGroup(0, uniformBindGroups[i]);
+            passEncoder.draw(mesh.vertexCount, 1, offset, 0);
+        }
+
         passEncoder.end();
         device.queue.submit([commandEncoder.finish()]);
 

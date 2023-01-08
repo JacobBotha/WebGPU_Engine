@@ -1,4 +1,3 @@
-import Model from "./model";
 import vertShaderCode from './shaders/vert.wgsl';
 import fragShaderCode from './shaders/frag.wgsl';
 
@@ -270,20 +269,20 @@ export default class Renderer {
         this.device?.destroy();
     }
 
-    loadModel(model: Model) {
-        //TODO: Handle multiple model loads or replacements
-        if (this.vertexBuffer != null) {
-            throw new Error('Model already loaded!')
-        }
+    // loadModel(model: Model) {
+    //     //TODO: Handle multiple model loads or replacements
+    //     if (this.vertexBuffer != null) {
+    //         throw new Error('Model already loaded!')
+    //     }
 
-        if (this.device == null) {
-            throw new Error('Cannot load model for uninitialised Renderer!')
-        }
+    //     if (this.device == null) {
+    //         throw new Error('Cannot load model for uninitialised Renderer!')
+    //     }
 
-        this.vertexBuffer = createStaticBuffer(this.device, model.positions, GPUBufferUsage.VERTEX);
-        this.colorBuffer = createStaticBuffer(this.device, model.colors, GPUBufferUsage.VERTEX);
-        this.indexBuffer = createStaticBuffer(this.device, model.indices, GPUBufferUsage.INDEX);
-    }
+    //     this.vertexBuffer = createStaticBuffer(this.device, model.positions, GPUBufferUsage.VERTEX);
+    //     this.colorBuffer = createStaticBuffer(this.device, model.colors, GPUBufferUsage.VERTEX);
+    //     this.indexBuffer = createStaticBuffer(this.device, model.indices, GPUBufferUsage.INDEX);
+    // }
 
     loadUniforms(uniformData: Float32Array) {
         //TODO: Handle update uniform

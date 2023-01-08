@@ -34,7 +34,7 @@ const vertexArray = new Float32Array([
 ]);
 
 const SquarePyramidMesh: Mesh = {
-    meshName: "Pyramid",
+    meshName: "pyramid",
     vertexArray: vertexArray,
     vertexCount: vertexCount,
     vertexSize: vertexSize,

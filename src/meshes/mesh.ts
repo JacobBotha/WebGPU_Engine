@@ -1,8 +1,8 @@
 //Byte size of float multiplied by 10 floats (4 pos, 4 color, 2 uv)
 const defaultVertexSize = 40;
-const defaultPositionOffset = 40;
-const defaultColorOffset = 40;
-const defaultUVOffset = 40;
+const defaultPositionOffset = 0;
+const defaultColorOffset = 16;
+const defaultUVOffset = 32;
 
 export default interface Mesh {
     readonly meshName: string; //Used to identify the mesh in the map.  
@@ -13,15 +13,15 @@ export default interface Mesh {
     readonly uvOffset: number;
     readonly vertexArray: Float32Array;
 };
-
+    
 export class MeshMap {
-    private _meshes = new Map<string, Mesh>;
+    private _meshes = new Map<string, {mesh: Mesh, offset: number}>;
     private _vertexCount: number = 0;
     private _vertexSize: number;
     private _positionOffset: number;
     private _colorOffset: number;
     private _uvOffset: number;
-
+    
     constructor(
         vertexSize = defaultVertexSize, 
         positionOffset = defaultPositionOffset, 
@@ -38,7 +38,7 @@ export class MeshMap {
         return this._vertexSize;
     }
 
-    get positionOffest(): number {
+    get positionOffset(): number {
         return this._positionOffset;
     }
 
@@ -54,6 +54,15 @@ export class MeshMap {
         return this._vertexCount;
     }
 
+    get(name: string) {
+        const mesh = this._meshes.get(name);
+        if(!mesh) {
+            throw new Error("Cannot find mesh!")
+        }
+
+        return mesh;
+    }
+
     add(mesh: Mesh) {
         if(this._meshes.has(mesh.meshName)) {
             throw new Error("Mesh already in map.");
@@ -63,20 +72,35 @@ export class MeshMap {
             throw new Error("Cannot add mesh with different vertex size to the ")
         }
 
-        if (this.positionOffest != mesh.positionOffset || 
-            this.colorOffset != mesh.positionOffset || 
+        if (this.positionOffset != mesh.positionOffset || 
+            this.colorOffset != mesh.colorOffset || 
             this.uvOffset != mesh.uvOffset) 
         {
             throw new Error("Cannot add mesh with different offsets.")
         }
 
-        this._meshes.set(mesh.meshName, mesh);
+        let offset = this.vertexCount;
+        if (this.vertexCount > 0) {
+            offset -= 1;
+        }
+
+        this._meshes.set(mesh.meshName, {mesh, offset});
+        console.log(this.vertexCount);
         this._vertexCount += mesh.vertexCount;
     }
 
+    //Currently not working - Does not reasess offsets of other meshes.
     remove(mesh: Mesh) {
-      if(this._meshes.has(mesh.meshName)) {
-        this._meshes.delete(mesh.meshName);
-      }
+        if(this._meshes.has(mesh.meshName)) {
+            this._vertexCount -= mesh.vertexCount;
+            this._meshes.delete(mesh.meshName);
+        }
+    }
+
+    /**
+     * Executes a provided function once per each key/value pair in the Map, in insertion order.
+     */
+    forEach(callbackfn: (value: {mesh: Mesh, offset: number}, key: string, map: Map<string, {mesh: Mesh, offset:number}>) => void, thisArg?: any): void {
+        this._meshes.forEach(callbackfn, thisArg);
     }
 }
