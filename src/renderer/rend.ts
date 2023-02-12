@@ -234,23 +234,11 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
     });
 
     //Size of buffer changes with number of models
-    const uniformBufferSize = 256 * 2; // 4x4 matrix
+    const uniformBufferSize = 256 * models.length; // 4x4 matrix
     const uniformBuffer = device.createBuffer({
         size: uniformBufferSize,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-
-    // const uniformBindGroup = device.createBindGroup({
-    //     layout: pipeline.getBindGroupLayout(0),
-    //     entries: [
-    //     {
-    //         binding: 0,
-    //         resource: {
-    //         buffer: uniformBuffer,
-    //         },
-    //     },
-    //     ],
-    // });
 
     for (let i = 0; i < models.length; i++) {
         uniformBindGroups.push(newUniformBindGroup(device, pipeline, uniformBuffer, i));
@@ -279,23 +267,6 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
     const projectionMatrix = mat4.create();
     mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
-    function getTransformationMatrix(translatex = 0) {
-        const viewMatrix = mat4.create();
-        mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(translatex, 0, -4));
-        const now = Date.now() / 1000;
-        mat4.rotate(
-        viewMatrix,
-        viewMatrix,
-        1,
-        vec3.fromValues(Math.sin(now), Math.cos(now), 0)
-        );
-
-        const modelViewProjectionMatrix = mat4.create();
-        mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
-
-        return modelViewProjectionMatrix as Float32Array;
-    }
-
     function frame() {
         // Sample is no longer the active page.
         if (!pageState.active) return;
@@ -319,7 +290,7 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
         for (let i = 0; i < models.length; i++) {
             const matrix = models[i].transform as Float32Array;
             const offset = 256 * i;
-            console.log("Offset: " + offset + "\n Name:" + models[i].meshName + "\n Matrix: " + matrix);
+            // console.log("Offset: " + offset + "\n Name:" + models[i].meshName + "\n Matrix: " + matrix);
             device.queue.writeBuffer(
                 uniformBuffer,
                 offset,

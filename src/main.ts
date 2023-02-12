@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'gl-matrix';
+import { mat4, vec3, vec4 } from 'gl-matrix';
 import { CheckGPU, createCanvas } from './helper';
 import Model from './models/model';
 import initRenderer, { drawModel } from './renderer/rend';
@@ -12,9 +12,9 @@ if (CheckGPU()){
     const projectionMatrix = mat4.create();
     mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
-    function getTransformationMatrix(translatex = 0) {
+    function getTransformationMatrix(translatex = 0, translateY = 0, translateZ = 0) {
         const viewMatrix = mat4.create();
-        mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(translatex, 0, -4));
+        mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(translatex, translateY, translateZ));
         const now = Date.now() / 1000;
         mat4.rotate(
         viewMatrix,
@@ -28,28 +28,42 @@ if (CheckGPU()){
 
         return modelViewProjectionMatrix as Float32Array;
     }
-    
-    let sqTransform = mat4.create();
-    let pyTransform = mat4.create();
 
     class MyCube implements Model {
         meshName: string = "cube";
         transform: mat4 = mat4.create();
+        startPos: vec3;
+
+        constructor(startPos: vec3 = vec3.create()) {
+            this.startPos = startPos;
+        }
+        
         onUpdate() {
-            this.transform = getTransformationMatrix(-2);
+            this.transform = getTransformationMatrix(this.startPos[0], this.startPos[1], this.startPos[2]);
         }
     }
 
     class MyPyramid implements Model {
         meshName: string = "pyramid";
         transform: mat4 = mat4.create();
+        startPos: vec3;
+
+        constructor(startPos: vec3 = vec3.create()) {
+            this.startPos = startPos;
+        }
+
         onUpdate() {
-            this.transform = getTransformationMatrix(2);
+            this.transform = getTransformationMatrix(this.startPos[0], this.startPos[1], this.startPos[2]);
         }
     }
 
-    drawModel(new MyCube());
-    drawModel(new MyPyramid());
+    for (let i = 1; i <= 20; i++) {
+        drawModel(new MyCube(vec3.fromValues(-2, -1, i*-4)));
+        drawModel(new MyPyramid(vec3.fromValues(2, -1, i*-4)));
+    }
+    
+    // drawModel(new MyCube());
+    // drawModel(new MyPyramid());
 
     initRenderer({canvas: canvas, pageState: {active: true}});
 }
