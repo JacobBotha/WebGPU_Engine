@@ -25,6 +25,15 @@ export const createCanvas = () : HTMLCanvasElement => {
     return canvas;
 }
 
+export const createButton = (text: string, onclick?: () => void) : HTMLButtonElement => {
+    const button = document.createElement("button");
+    button.onclick = onclick;
+    button.textContent = text;
+    document.body.appendChild(button);
+
+    return button;
+}
+
 export enum BWResult {
     SUCESS,
     ERROR

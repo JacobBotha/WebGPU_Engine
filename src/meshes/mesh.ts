@@ -80,12 +80,8 @@ export class MeshMap {
         }
 
         let offset = this.vertexCount;
-        if (this.vertexCount > 0) {
-            offset -= 1;
-        }
 
         this._meshes.set(mesh.meshName, {mesh, offset});
-        console.log(this.vertexCount);
         this._vertexCount += mesh.vertexCount;
     }
 

@@ -1,28 +1,40 @@
-import CubeMesh from '../meshes/cube';
-
 import basicVertWGSL from './shaders/basic.vert.wgsl';
 import vertexPositionColorWGSL from './shaders/vertexPositionColor.frag.wgsl';
 import { mat4, vec3 } from 'gl-matrix';
 import Mesh, { MeshMap } from '../meshes/mesh';
 import Model from '../models/model';
 import { BWResult } from '../helper';
-import SquarePyramidMesh from '../meshes/square_pyramid';
+import GameObject from '../gameObject';
+import { SourceMap } from 'module';
+import { resourceLimits } from 'worker_threads';
+import { Camera } from './camera';
 
 export type RenderInit = (params: {
     canvas: HTMLCanvasElement;
     pageState: { active: boolean};
 }) => void | Promise<void>;
 
-//Should be moved out of rend.
-// const cube = CubeMesh;
-const sqPyramid = SquarePyramidMesh;
-
 //Map for storing all active meshes used in the scene.
 const meshMap = new MeshMap();
 
+const maxModels = 100;
 const models: Model[] = [];
 //The list of bind groups
 const uniformBindGroups: GPUBindGroup[] = [];
+
+//Future - Use array order as priorty of camera
+const maxCameras = 1;
+const cameras: Camera[] = [];
+const cameraUniformBindGroups: GPUBindGroup[] = [];
+
+export const addCamera = (camera: Camera) : BWResult => {
+    if (cameras.length >= maxCameras)
+        return BWResult.ERROR;
+
+    camera.onInit();
+    cameras.push(camera);
+    return BWResult.SUCESS;
+}
 
 /**
  * Draw a model to the screen with the model's given transform. The mesh of
@@ -34,6 +46,11 @@ const uniformBindGroups: GPUBindGroup[] = [];
  */
 export const drawModel = (model: Model) : BWResult => {
     // meshMap.add()
+    if (models.length == maxModels) {
+        console.log("Cannot add model exceeded max!")
+        return BWResult.ERROR;
+    }
+
     models.push(model);
     //Architecture redisgn to allow for dynamic model uploads
     // uniformBindGroups.push();
@@ -57,10 +74,6 @@ export const loadMesh = (mesh: Mesh) : BWResult => {
     };
 };
 
-
-console.log(loadMesh(CubeMesh));
-loadMesh(sqPyramid);
-
 const matrixSize = 4 * 16
 
 /**
@@ -73,8 +86,8 @@ const matrixSize = 4 * 16
  * @param offset number of 4x4 matrices from the start of the buffer
  */
 const newUniformBindGroup = (
-    device: GPUDevice, pipeline: 
-    GPURenderPipeline, 
+    device: GPUDevice, 
+    pipeline: GPURenderPipeline, 
     uniformBuffer: GPUBuffer,
     offset: number,
 ) : GPUBindGroup => {
@@ -91,6 +104,11 @@ const newUniformBindGroup = (
         },
         ],
     });
+}
+
+let deltaTime = 0;
+export const getDeltaTime = () => {
+    return deltaTime/1000;
 }
 
 /**
@@ -234,14 +252,48 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
     });
 
     //Size of buffer changes with number of models
-    const uniformBufferSize = 256 * models.length; // 4x4 matrix
+    // const uniformBufferSize = 256 * models.length; // 4x4 matrix
+
+    //Start with fixed size uniform buffer (Max 100 objects) 
+    //TODO: Dynamic UBO size increase/new buffer?
+    const uniformBufferSize = 256 * maxModels; // 4x4 matrix
+
     const uniformBuffer = device.createBuffer({
         size: uniformBufferSize,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    for (let i = 0; i < models.length; i++) {
+    for (let i = 0; i < maxModels; i++) {
         uniformBindGroups.push(newUniformBindGroup(device, pipeline, uniformBuffer, i));
+    }
+
+    const cameraUniformBufferSize = 256 * maxCameras; // 4x4 matrix
+
+    const cameraUniformBuffer = device.createBuffer({
+        size: cameraUniformBufferSize,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    //Maybe unecessary and use same function as regular uniform buffer.
+    function createCameraBindGroup () {
+        return device.createBindGroup({
+            layout: pipeline.getBindGroupLayout(1),
+            entries: [
+            {
+                binding: 0,
+                resource: {
+                    buffer: cameraUniformBuffer,
+                    offset: 0,
+                    size: matrixSize*2,
+                },
+            },
+            ],
+            label: "camera_bind_group",
+        });
+    }
+
+    for (let i = 0; i < maxCameras; i++) {
+        cameraUniformBindGroups.push(createCameraBindGroup());
     }
 
     const renderPassDescriptor: GPURenderPassDescriptor = {
@@ -263,27 +315,25 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
         },
     };
 
-    const aspect = canvas.width / canvas.height;
-    const projectionMatrix = mat4.create();
-    mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
+
+    let lastUpdate = Date.now();
 
     function frame() {
+        //Manage Clock;
+        let now = Date.now();
+        deltaTime = now - lastUpdate;
+        lastUpdate = now;
+
         // Sample is no longer the active page.
         if (!pageState.active) return;
 
-        // const transformationMatrix = getTransformationMatrix(2);
-        // device.queue.writeBuffer(
-        //     uniformBuffer,
-        //     0,
-        //     transformationMatrix.buffer,
-        //     transformationMatrix.byteOffset,
-        //     transformationMatrix.byteLength
-        // );
-        // const transformationMatrix2 = getTransformationMatrix(-2);
-        
         //Update each model in the model list
         for (let model of models) {
             model.onUpdate();
+        }
+
+        for (let camera of cameras) {
+            camera.onUpdate();
         }
         
         //Write uniform data to GPU
@@ -298,8 +348,26 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
                 matrix.byteOffset,
                 matrix.byteLength
             );
-            
         }
+
+        for (let i = 0; i < cameras.length; i++) {
+            const viewBuf = cameras[i].viewMatrix() as Float32Array;
+            const projBuf = cameras[i].projMatrix() as Float32Array;
+            const camBuf = new Float32Array(viewBuf.length + projBuf.length);
+
+            camBuf.set(viewBuf);
+            camBuf.set(projBuf, viewBuf.length);
+            const offset = 256 * i;
+            // console.log("Offset: " + offset + "\n Name:" + models[i].meshName + "\n Matrix: " + matrix);
+            device.queue.writeBuffer(
+                cameraUniformBuffer,
+                offset,
+                camBuf.buffer,
+                camBuf.byteOffset,
+                camBuf.byteLength
+            );
+        }
+
         (renderPassDescriptor.colorAttachments as Array<GPURenderPassColorAttachment>)[0].view = context
         .getCurrentTexture()
         .createView();
@@ -308,9 +376,11 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
         const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
         passEncoder.setPipeline(pipeline);
         passEncoder.setVertexBuffer(0, verticesBuffer);
+        passEncoder.setBindGroup(1, cameraUniformBindGroups[0]);
         // passEncoder.draw(cube.vertexCount, 1, 0, 0);
 
         //Draw each mesh in the map. - Should be changed to draw each mesh for the models.
+        //Or draw all meshes with the same material.
         for (let i = 0; i < models.length; i++) {
             const {mesh, offset} = meshMap.get(models[i].meshName);
             passEncoder.setBindGroup(0, uniformBindGroups[i]);
@@ -321,6 +391,11 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
         device.queue.submit([commandEncoder.finish()]);
 
         requestAnimationFrame(frame);
+    }
+
+    for (let model of models) {
+        model.onInit();
+        console.log("Initialising models!")
     }
     requestAnimationFrame(frame);
 };

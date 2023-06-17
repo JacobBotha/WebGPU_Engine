@@ -1,9 +1,16 @@
 import { mat4, vec3, vec4 } from 'gl-matrix';
-import { CheckGPU, createCanvas } from './helper';
+import GameObject from './gameObject';
+import { CheckGPU, createButton, createCanvas } from './helper';
 import Model from './models/model';
-import initRenderer, { drawModel } from './renderer/rend';
+import { Camera, CameraController, FirstPersonCamera} from './renderer/camera';
+import initRenderer, { addCamera, drawModel, loadMesh} from './renderer/rend';
 
-if (CheckGPU()){
+//Model Meshes
+import CubeMesh from './meshes/cube';
+import SquarePyramidMesh from './meshes/square_pyramid';
+import PlaneMesh from './meshes/plane';
+
+if (CheckGPU()) {
     console.log("Starting Bigworld...")
 
     const canvas = createCanvas();
@@ -26,45 +33,102 @@ if (CheckGPU()){
         const modelViewProjectionMatrix = mat4.create();
         mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
 
-        return modelViewProjectionMatrix as Float32Array;
+        return viewMatrix as Float32Array;
     }
 
     class MyCube implements Model {
-        meshName: string = "cube";
+        meshName: string = CubeMesh.meshName;
         transform: mat4 = mat4.create();
         startPos: vec3;
 
         constructor(startPos: vec3 = vec3.create()) {
             this.startPos = startPos;
+            mat4.translate(this.transform, this.transform, startPos);
         }
         
-        onUpdate() {
-            this.transform = getTransformationMatrix(this.startPos[0], this.startPos[1], this.startPos[2]);
-        }
+        onInit = () => {
+            console.log("Translating cube");
+            // mat4.translate(this.transform, this.transform, this.startPos);
+        };
+
+        onUpdate = () => {
+            // this.transform = getTransformationMatrix(this.startPos[0], this.startPos[1], this.startPos[2]);
+        };
+
+        onDestroy = () => {};
     }
 
     class MyPyramid implements Model {
-        meshName: string = "pyramid";
-        transform: mat4 = mat4.create();
+        meshName: string = SquarePyramidMesh.meshName;
+        transform: mat4;
         startPos: vec3;
 
         constructor(startPos: vec3 = vec3.create()) {
             this.startPos = startPos;
+            this.transform = mat4.create();
+            mat4.translate(this.transform, this.transform, this.startPos);
+            console.log(this.transform);
         }
+
+        onInit = () => {
+            console.log("Translating cube");
+            // mat4.translate(this.transform, this.transform, this.startPos);
+        };
 
         onUpdate() {
             this.transform = getTransformationMatrix(this.startPos[0], this.startPos[1], this.startPos[2]);
         }
+
+        onDestroy = () => {};
     }
 
-    for (let i = 1; i <= 20; i++) {
-        drawModel(new MyCube(vec3.fromValues(-2, -1, i*-4)));
-        drawModel(new MyPyramid(vec3.fromValues(2, -1, i*-4)));
+    class Plane implements Model {
+        meshName: string = PlaneMesh.meshName;
+        transform: mat4;
+        startPos: vec3;
+
+        constructor(startPos: vec3 = vec3.create(), scale = vec3.create()) {
+            this.startPos = startPos;
+            this.transform = mat4.create();
+
+            mat4.translate(this.transform, this.transform, this.startPos);
+            mat4.scale(this.transform, this.transform, scale);
+            console.log(this.transform);
+        }
+
+        onInit = () => {
+        };
+
+        onUpdate() {}
+
+        onDestroy = () => {};
     }
+
+    loadMesh(SquarePyramidMesh);
+    loadMesh(CubeMesh);
+    loadMesh(PlaneMesh);
     
-    // drawModel(new MyCube());
-    // drawModel(new MyPyramid());
+    let i = 1;
+    // drawModel(new MyCube(vec3.fromValues(0, 0, 0)));
+    // drawModel(new MyPyramid(vec3.fromValues(1, 1, 4)));
+    drawModel(new Plane(vec3.fromValues(0, 0, 0), vec3.fromValues(10, 1, 10)))
+
+    createButton("Add Cube", () => {drawModel(new MyCube(vec3.fromValues(0, 1, i*4)));i++;});
+    createButton("Add Pyramid", () => {drawModel(new MyPyramid(vec3.fromValues(2, 1, i*4)));i++;});
+
+    let camera: Camera = new FirstPersonCamera (
+        vec3.fromValues(0, 0, 5),
+        vec3.create(),
+        vec3.fromValues(0, 1, 0),
+        aspect,
+        1,
+        1,
+        100.00
+    )
+
+    addCamera(camera);
 
     initRenderer({canvas: canvas, pageState: {active: true}});
+
+    
 }
-// main();
