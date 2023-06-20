@@ -1,9 +1,9 @@
 import { mat4, vec3, vec4 } from 'gl-matrix';
 import GameObject from './gameObject';
-import { CheckGPU, createButton, createCanvas } from './helper';
+import { CheckGPU, createButton, createCanvas, createHeading } from './helper';
 import Model from './models/model';
 import { Camera, CameraController, FirstPersonCamera} from './renderer/camera';
-import initRenderer, { addCamera, drawModel, loadMesh} from './renderer/rend';
+import initRenderer, { addCamera, drawModel, getFrameRate, loadMesh} from './renderer/rend';
 
 //Model Meshes
 import CubeMesh from './meshes/cube';
@@ -82,6 +82,8 @@ if (CheckGPU()) {
         onDestroy = () => {};
     }
 
+    const frameCounter = createHeading(getFrameRate().toString());
+
     class Plane implements Model {
         meshName: string = PlaneMesh.meshName;
         transform: mat4;
@@ -99,7 +101,9 @@ if (CheckGPU()) {
         onInit = () => {
         };
 
-        onUpdate() {}
+        onUpdate() {
+            frameCounter.textContent = getFrameRate().toString();
+        }
 
         onDestroy = () => {};
     }

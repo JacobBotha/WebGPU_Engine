@@ -107,8 +107,16 @@ const newUniformBindGroup = (
 }
 
 let deltaTime = 0;
+let frameNo = 0;
+
 export const getDeltaTime = () => {
     return deltaTime/1000;
+}
+
+const startTime = Date.now();
+
+export const getFrameRate = () => {
+    return frameNo/((Date.now() - startTime) / 1000);
 }
 
 /**
@@ -315,7 +323,6 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
         },
     };
 
-
     let lastUpdate = Date.now();
 
     function frame() {
@@ -323,6 +330,7 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
         let now = Date.now();
         deltaTime = now - lastUpdate;
         lastUpdate = now;
+        frameNo += 1;
 
         // Sample is no longer the active page.
         if (!pageState.active) return;

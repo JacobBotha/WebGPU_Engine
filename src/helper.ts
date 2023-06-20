@@ -34,6 +34,14 @@ export const createButton = (text: string, onclick?: () => void) : HTMLButtonEle
     return button;
 }
 
+export const createHeading = (text: string) : HTMLHeadingElement => {
+    const heading = document.createElement("h5");
+    heading.textContent =  text;
+    document.body.appendChild(heading);
+
+    return heading;
+}
+
 export enum BWResult {
     SUCESS,
     ERROR
