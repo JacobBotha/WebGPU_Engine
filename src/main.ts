@@ -1,21 +1,30 @@
 import { mat4, vec3, vec4 } from 'gl-matrix';
 import GameObject from './gameObject';
-import { CheckGPU, createButton, createCanvas, createHeading } from './helper';
+import { CheckGPU, createPageButton, createGameButton, createHeading } from './helper';
 import Model from './models/model';
 import { Camera, CameraController, FirstPersonCamera} from './renderer/camera';
 import initRenderer, { addCamera, drawModel, getFrameRate, loadMesh} from './renderer/rend';
+import Window from './window';
 
 //Model Meshes
 import CubeMesh from './meshes/cube';
 import SquarePyramidMesh from './meshes/square_pyramid';
 import PlaneMesh from './meshes/plane';
 
-if (CheckGPU()) {
-    console.log("Starting Bigworld...")
+const gameContainer = document.getElementById("canvas-wrap");
+const overlay = document.getElementById("canvas-overlay");
 
-    const canvas = createCanvas();
+const initContainer = () : Window => {
+    let gameWindow = new Window(gameContainer)
 
-    const aspect = canvas.width / canvas.height;
+    overlay.style.height = gameWindow.height.toString() + "px";
+    overlay.style.width = gameWindow.width.toString() + "px";
+    
+    return gameWindow;
+}
+
+const run = (aspect: number) : void => {
+    // const aspect = gameWindow.width / gameWindow.height;
     const projectionMatrix = mat4.create();
     mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
@@ -117,8 +126,8 @@ if (CheckGPU()) {
     // drawModel(new MyPyramid(vec3.fromValues(1, 1, 4)));
     drawModel(new Plane(vec3.fromValues(0, 0, 0), vec3.fromValues(10, 1, 10)))
 
-    createButton("Add Cube", () => {drawModel(new MyCube(vec3.fromValues(0, 1, i*4)));i++;});
-    createButton("Add Pyramid", () => {drawModel(new MyPyramid(vec3.fromValues(2, 1, i*4)));i++;});
+    createGameButton("Add Cube", () => {drawModel(new MyCube(vec3.fromValues(0, 1, i*4)));i++;}, overlay);
+    createGameButton("Add Pyramid", () => {drawModel(new MyPyramid(vec3.fromValues(2, 1, i*4)));i++;}, overlay);
 
     let camera: Camera = new FirstPersonCamera (
         vec3.fromValues(0, 0, 5),
@@ -131,8 +140,35 @@ if (CheckGPU()) {
     )
 
     addCamera(camera);
-
-    initRenderer({canvas: canvas, pageState: {active: true}});
-
     
 }
+
+
+const preGameDiv = document.getElementById('checker-div');
+
+const startGame = () : void => {
+    if (!CheckGPU()) {
+        return;
+    }
+    console.log("Starting Bigworld...")
+    
+    preGameDiv?.remove();
+    let gameWindow = initContainer();
+    const onResize = (event: Event) => { 
+        console.log("Resize");
+        gameWindow.resize();
+
+        overlay.style.height = gameWindow.height.toString() + "px";
+        overlay.style.width = gameWindow.width.toString() + "px";
+    }
+
+    window.addEventListener("resize", onResize);
+
+    run(gameWindow.width/gameWindow.height);
+    // create event handler for resize
+    initRenderer({gameWindow: gameWindow, pageState: {active: true}});
+}
+
+//Create play button and initial elements
+let title = createHeading('Welcome to BigWorld. Start your adventure now!', preGameDiv);
+let playBttn = createPageButton('Play Now!', startGame, preGameDiv);

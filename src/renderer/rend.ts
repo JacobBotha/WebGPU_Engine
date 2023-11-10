@@ -8,9 +8,10 @@ import GameObject from '../gameObject';
 import { SourceMap } from 'module';
 import { resourceLimits } from 'worker_threads';
 import { Camera } from './camera';
+import Window from '../window'
 
 export type RenderInit = (params: {
-    canvas: HTMLCanvasElement;
+    gameWindow: Window;
     pageState: { active: boolean};
 }) => void | Promise<void>;
 
@@ -123,9 +124,9 @@ export const getFrameRate = () => {
  * Begins the renderer including the draw loop. If renderer could not be
  * initialised an error is thrown.
  * 
- * @param param0 Dictionary containing canvas and pagestate information.
+ * @param param0 Dictionary containing gameWindow and pagestate information.
  */
-const initRenderer: RenderInit = async ({canvas, pageState}) => {
+const initRenderer: RenderInit = async ({gameWindow, pageState}) => {
     /**
      * Select the GPU adaptor to use for rendering. If forceFallback is true
      * AND blockFallback is true then no adaptor can be selected.
@@ -166,12 +167,11 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
     const device = await adapter.requestDevice();
 
     if (!pageState.active) return;
-    const context = canvas.getContext('webgpu') as unknown as GPUCanvasContext;
+    const context = gameWindow.context;
 
-    const devicePixelRatio = window.devicePixelRatio || 1;
     const presentationSize = [
-        canvas.clientWidth * devicePixelRatio,
-        canvas.clientHeight * devicePixelRatio,
+        gameWindow.width, 
+        gameWindow.height, 
     ];
     const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
@@ -253,7 +253,7 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
         },
     });
 
-    const depthTexture = device.createTexture({
+    let depthTexture = device.createTexture({
         size: presentationSize,
         format: 'depth24plus',
         usage: GPUTextureUsage.RENDER_ATTACHMENT,
@@ -331,7 +331,27 @@ const initRenderer: RenderInit = async ({canvas, pageState}) => {
         deltaTime = now - lastUpdate;
         lastUpdate = now;
         frameNo += 1;
+        
+        if (gameWindow.hasResized(presentationSize[0], presentationSize[1])) {
+            if (depthTexture !== undefined) {
+                depthTexture.destroy();
+            }
+            
+            presentationSize[0] = gameWindow.width;
+            presentationSize[1] = gameWindow.height;
+            
+            depthTexture = device.createTexture({
+                size: presentationSize,
+                format: 'depth24plus',
+                usage: GPUTextureUsage.RENDER_ATTACHMENT,
+            });
 
+            let depthView = depthTexture.createView();
+            renderPassDescriptor.depthStencilAttachment.view = depthView;
+            for (let camera of cameras) {
+                camera.aspect = presentationSize[0] / presentationSize[1]
+            }
+        }
         // Sample is no longer the active page.
         if (!pageState.active) return;
 

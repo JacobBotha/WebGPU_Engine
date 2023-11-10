@@ -7,37 +7,38 @@ export const CheckGPU = () : boolean => {
         return false;
     }
 
-    gpuCheck.textContent = 'WebGPU Enabled!';
+    gpuCheck.textContent = 'WebGPU Enabled! Ready to start your adventure?';
 
     return true;
 }
 
-export const createCanvas = () : HTMLCanvasElement => {
-    const canvas = document.createElement("canvas");
-    const gpuCheck = document.getElementById('checker-div');
-    document.body.insertBefore(canvas, gpuCheck);
-    canvas.id = "web-gpu-context";
-    canvas.width = 640;
-    canvas.height = 480;
+export const createPageButton = (text: string, onclick?: () => void, parent:HTMLElement=document.body) => {
+    const button = createButton(text, onclick, parent);
+    button.classList.add("page-button");
 
-    gpuCheck?.remove();
-
-    return canvas;
+    return button
 }
 
-export const createButton = (text: string, onclick?: () => void) : HTMLButtonElement => {
+export const createGameButton = (text: string, onclick?: () => void, parent:HTMLElement=document.body) => {
+    const button = createButton(text, onclick, parent);
+    button.classList.add("game-button");
+
+    return button
+}
+
+const createButton = (text: string, onclick?: () => void, parent:HTMLElement=document.body) : HTMLButtonElement => {
     const button = document.createElement("button");
     button.onclick = onclick;
     button.textContent = text;
-    document.body.appendChild(button);
+    parent.appendChild(button);
 
     return button;
 }
 
-export const createHeading = (text: string) : HTMLHeadingElement => {
+export const createHeading = (text: string, parent: HTMLElement=document.body) : HTMLHeadingElement => {
     const heading = document.createElement("h5");
     heading.textContent =  text;
-    document.body.appendChild(heading);
+    parent.appendChild(heading);
 
     return heading;
 }
