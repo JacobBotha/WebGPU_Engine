@@ -1,6 +1,6 @@
 import { mat4, vec3, vec4 } from 'gl-matrix';
 import GameObject from './gameObject';
-import { CheckGPU, createPageButton, createGameButton, createHeading } from './helper';
+import * as helper from './helper';
 import Model from './models/model';
 import { Camera, CameraController, FirstPersonCamera} from './renderer/camera';
 import initRenderer, { addCamera, drawModel, getFrameRate, loadMesh} from './renderer/rend';
@@ -22,6 +22,9 @@ const initContainer = () : Window => {
     
     return gameWindow;
 }
+
+let x: number = 40;
+let isPyramid = false;
 
 const run = (aspect: number) : void => {
     // const aspect = gameWindow.width / gameWindow.height;
@@ -95,19 +98,23 @@ const run = (aspect: number) : void => {
     // createGameButton("Add Cube", () => {drawModel(new MyCube(vec3.fromValues(0, 1, i*4)));i++;}, overlay);
     // createGameButton("Add Pyramid", () => {drawModel(new MyPyramid(vec3.fromValues(2, 1, i*4)));i++;}, overlay);
     let i=1;
-    while (i <= 40) {
+    while (i <= x) {
         let j=1;
-        while (j <= 40) {
+        while (j <= x) {
             let k=1;
-            while (k <= 40){
-                drawModel(new MyPyramid(vec3.fromValues(k*4, j*4, i*4)));
+            while (k <= x){
+                if (isPyramid) {
+                    drawModel(new MyPyramid(vec3.fromValues(k*4, j*4, i*4)));
+                } else {
+                    drawModel(new MyCube(vec3.fromValues(k*4, j*4, i*4)));
+                }
                 k++
             }
             j++;
         }
         i++;
     }
-    const frameCounter = createHeading(getFrameRate().toString(), overlay);
+    const frameCounter = helper.createHeading(getFrameRate().toString(), overlay);
 
     class Plane implements Model {
         meshName: string = PlaneMesh.meshName;
@@ -159,10 +166,13 @@ const run = (aspect: number) : void => {
 const preGameDiv = document.getElementById('checker-div');
 
 const startGame = () : void => {
-    if (!CheckGPU()) {
+    if (!helper.CheckGPU()) {
         return;
     }
     console.log("Starting Bigworld...")
+    x = +((document.getElementById('objCount') as HTMLInputElement).value);     
+    
+    isPyramid = (document.getElementById('Pyramid') as HTMLInputElement).checked;
     
     preGameDiv?.remove();
     let gameWindow = initContainer();
@@ -182,5 +192,12 @@ const startGame = () : void => {
 }
 
 //Create play button and initial elements
-let title = createHeading('Welcome to BigWorld. Start your adventure now!', preGameDiv);
-let playBttn = createPageButton('Play Now!', startGame, preGameDiv);
+let title = helper.createHeading('Welcome to BigWorld. Start your adventure now!', preGameDiv);
+let textInput = helper.createTextInput('40', 'Enter the number of objects (^3) to render:', preGameDiv); 
+textInput.type= 'number';
+textInput.id = 'objCount';
+let objTypeInput = helper.createRadioGroup('Select Object Type', [
+    {name: 'Pyramid', isCorrect: false}, 
+    {name: 'Cube', isCorrect: true}]
+, preGameDiv);
+let playBttn = helper.createPageButton('Play Now!', startGame, preGameDiv);

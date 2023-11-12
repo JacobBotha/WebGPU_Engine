@@ -35,6 +35,54 @@ const createButton = (text: string, onclick?: () => void, parent:HTMLElement=doc
     return button;
 }
 
+export const createTextInput = (text: string, label: string, parent:HTMLElement=document.body) : HTMLButtonElement => {
+    const labelEl = document.createElement("p");
+    labelEl.textContent = label;
+    parent.appendChild(labelEl);
+    const input = document.createElement("input");
+    input.onclick = onclick;
+    input.textContent = text;
+    parent.appendChild(input);
+
+    return input;
+}
+
+export type radioOption = {
+    name: string,
+    isCorrect: boolean
+}
+
+export const createRadioGroup = (text: string, options: radioOption[], parent:HTMLElement=document.body) : HTMLDivElement => {
+    const container = document.createElement('div');
+    const heading = createHeading(text, container);
+    const form = document.createElement('form');
+    options.forEach(({ name, isCorrect }) => form.appendChild(createOptionRadio(name, isCorrect)));
+    container.appendChild(form);
+    parent.appendChild(container);
+
+    return container;
+}
+
+const createOptionRadio = (name: string, isCorrect, parent:HTMLElement=document.body) => {
+    const container = document.createElement('div');
+
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.value = name;
+    input.id = name;
+    input.checked = isCorrect;
+    input.name = 'question-option';
+
+    const label = document.createElement('label');
+    label.htmlFor = name;
+    label.textContent = name[0].toUpperCase() + name.slice(1);
+
+    container.appendChild(input);
+    container.appendChild(label);
+
+    return container;
+};
+
 export const createHeading = (text: string, parent: HTMLElement=document.body) : HTMLHeadingElement => {
     const heading = document.createElement("h5");
     heading.textContent =  text;
