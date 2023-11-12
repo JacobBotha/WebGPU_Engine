@@ -91,7 +91,23 @@ const run = (aspect: number) : void => {
         onDestroy = () => {};
     }
 
-    const frameCounter = createHeading(getFrameRate().toString());
+
+    // createGameButton("Add Cube", () => {drawModel(new MyCube(vec3.fromValues(0, 1, i*4)));i++;}, overlay);
+    // createGameButton("Add Pyramid", () => {drawModel(new MyPyramid(vec3.fromValues(2, 1, i*4)));i++;}, overlay);
+    let i=1;
+    while (i <= 40) {
+        let j=1;
+        while (j <= 40) {
+            let k=1;
+            while (k <= 40){
+                drawModel(new MyPyramid(vec3.fromValues(k*4, j*4, i*4)));
+                k++
+            }
+            j++;
+        }
+        i++;
+    }
+    const frameCounter = createHeading(getFrameRate().toString(), overlay);
 
     class Plane implements Model {
         meshName: string = PlaneMesh.meshName;
@@ -121,13 +137,9 @@ const run = (aspect: number) : void => {
     loadMesh(CubeMesh);
     loadMesh(PlaneMesh);
     
-    let i = 1;
     // drawModel(new MyCube(vec3.fromValues(0, 0, 0)));
     // drawModel(new MyPyramid(vec3.fromValues(1, 1, 4)));
     drawModel(new Plane(vec3.fromValues(0, 0, 0), vec3.fromValues(10, 1, 10)))
-
-    createGameButton("Add Cube", () => {drawModel(new MyCube(vec3.fromValues(0, 1, i*4)));i++;}, overlay);
-    createGameButton("Add Pyramid", () => {drawModel(new MyPyramid(vec3.fromValues(2, 1, i*4)));i++;}, overlay);
 
     let camera: Camera = new FirstPersonCamera (
         vec3.fromValues(0, 0, 5),
@@ -135,8 +147,8 @@ const run = (aspect: number) : void => {
         vec3.fromValues(0, 1, 0),
         aspect,
         1,
-        1,
-        100.00
+        0.1,
+        1000.00
     )
 
     addCamera(camera);

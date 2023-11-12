@@ -18,7 +18,7 @@ export type RenderInit = (params: {
 //Map for storing all active meshes used in the scene.
 const meshMap = new MeshMap();
 
-const maxModels = 100;
+const maxModels = 1000001;
 const models: Model[] = [];
 //The list of bind groups
 const uniformBindGroups: GPUBindGroup[] = [];
@@ -117,7 +117,8 @@ export const getDeltaTime = () => {
 const startTime = Date.now();
 
 export const getFrameRate = () => {
-    return frameNo/((Date.now() - startTime) / 1000);
+    const frameRate = frameNo/((Date.now() - startTime) / 1000);
+    return frameRate.toFixed(2);
 }
 
 /**
@@ -349,7 +350,7 @@ const initRenderer: RenderInit = async ({gameWindow, pageState}) => {
             let depthView = depthTexture.createView();
             renderPassDescriptor.depthStencilAttachment.view = depthView;
             for (let camera of cameras) {
-                camera.aspect = presentationSize[0] / presentationSize[1]
+                camera.aspect = presentationSize[0] / presentationSize[1];
             }
         }
         // Sample is no longer the active page.
